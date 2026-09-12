@@ -12,8 +12,10 @@ jobs:
     # The unit tests touch MySQL and Redis (test/.env.test points at localhost),
     # so they need both here or every db-touching test fails on connection.
     services:
+      # 5.7, not 8: the mysql npm client here predates caching_sha2_password and
+      # fails MySQL 8 auth with ER_NOT_SUPPORTED_AUTH_MODE.
       mysql:
-        image: mysql:8
+        image: mysql:5.7
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: snapshot_sequencer_test
