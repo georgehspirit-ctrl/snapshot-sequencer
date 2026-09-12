@@ -93,20 +93,11 @@ jest.mock('../../../src/helpers/actions', () => {
   };
 });
 
-const mockGetSpaceController = jest.fn((): any => {
-  return '0xF296178d553C8Ec21A2fBD2c5dDa8CA9ac905A00';
-});
-jest.mock('@snapshot-labs/snapshot.js', () => {
-  const originalModule = jest.requireActual('@snapshot-labs/snapshot.js');
-
-  return {
-    ...originalModule,
-    utils: {
-      ...originalModule.utils,
-      getSpaceController: () => mockGetSpaceController()
-    }
-  };
-});
+// Space control is an allowlist here, not ENS — snapshot.js's getSpaceController is
+// no longer on the write path, so there is nothing to mock. The fixture's space and
+// signer are allowlisted instead.
+const FIXTURE_SPACE = 'fabien.eth';
+const FIXTURE_CONTROLLER = '0xF296178d553C8Ec21A2fBD2c5dDa8CA9ac905A00';
 
 // Get the mocked function after the mock is created
 const { validateSpaceSettings: mockValidateSpaceSettings } = jest.requireMock(
@@ -120,6 +111,32 @@ describe('writer/settings', () => {
       jest.clearAllMocks();
       // Default validateSpaceSettings to resolve (success)
       mockValidateSpaceSettings.mockResolvedValue(undefined);
+      process.env.SPACE_ALLOWLIST = `${FIXTURE_SPACE}:${FIXTURE_CONTROLLER}`;
+    });
+
+    afterEach(() => {
+      delete process.env.SPACE_ALLOWLIST;
+    });
+
+    describe('space allowlist', () => {
+      it('rejects a space that is not allowlisted', async () => {
+        process.env.SPACE_ALLOWLIST = `nvda:${FIXTURE_CONTROLLER}`;
+
+        return expect(verify(input)).rejects.toBe('space not allowed');
+      });
+
+      it('rejects every space when the allowlist is unset', async () => {
+        delete process.env.SPACE_ALLOWLIST;
+
+        return expect(verify(input)).rejects.toBe('space not allowed');
+      });
+
+      it('rejects an allowlisted space signed by a different address', async () => {
+        process.env.SPACE_ALLOWLIST =
+          `${FIXTURE_SPACE}:0x0000000000000000000000000000000000000001`;
+
+        return expect(verify(input)).rejects.toBe('not allowed');
+      });
     });
 
     describe('on invalid input', () => {
