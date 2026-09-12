@@ -18,7 +18,7 @@ jobs:
       # wallets.
       - run: bun install
       - run: bun run typecheck
-      - run: bun run lint:nofix
+      - run: bun run lint
       - run: bun run test:unit
         env:
           SPACE_ALLOWLIST: 'nvda:0x11dA6f0B92C4e8a37D50b1F9cA26e4B8d07bECdC'
