@@ -8,17 +8,45 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+
+    # The unit tests touch MySQL and Redis (test/.env.test points at localhost),
+    # so they need both here or every db-touching test fails on connection.
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: snapshot_sequencer_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
       # Not --frozen-lockfile: package.json pins snapshot.js ^0.17.2 for RHC 4663
       # and the lockfile is regenerated here rather than on a machine that holds
       # wallets.
       - run: bun install
+
+      - run: mysql -h 127.0.0.1 -P 3306 -uroot -proot snapshot_sequencer_test < test/schema.sql
+
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run test:unit
-        env:
-          SPACE_ALLOWLIST: 'nvda:0x11dA6f0B92C4e8a37D50b1F9cA26e4B8d07bECdC'
