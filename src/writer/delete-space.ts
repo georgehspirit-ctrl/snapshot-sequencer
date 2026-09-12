@@ -2,7 +2,7 @@ import { capture } from '@snapshot-labs/snapshot-sentry';
 import { getSpace } from '../helpers/actions';
 import log from '../helpers/log';
 import db from '../helpers/mysql';
-import { getSpaceController, jsonParse } from '../helpers/utils';
+import { getSpaceController, isSpaceController, jsonParse } from '../helpers/utils';
 
 const SNAPSHOT_ENV = process.env.NETWORK || 'testnet';
 
@@ -13,8 +13,9 @@ export async function verify(body): Promise<any> {
   if (!space) return Promise.reject('space not found');
 
   const controller = await getSpaceController(msg.space, SNAPSHOT_ENV);
-  const isController = controller === body.address;
-  if (!isController) return Promise.reject('not allowed');
+  if (!isSpaceController(msg.space, body.address, controller)) {
+    return Promise.reject('not allowed');
+  }
 }
 
 export async function action(body): Promise<void> {

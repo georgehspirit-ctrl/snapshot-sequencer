@@ -9,6 +9,8 @@ import {
   addToWalletConnectWhitelist,
   clearStampCache,
   getSpaceController,
+  isSpaceAllowed,
+  isSpaceController,
   jsonParse,
   removeFromWalletConnectWhitelist
 } from '../helpers/utils';
@@ -20,6 +22,14 @@ export async function verify(body): Promise<any> {
   if (msg.space.length > 64) {
     return Promise.reject('id too long');
   }
+
+  // One space per whitelisted ticker. A space outside SPACE_ALLOWLIST can
+  // never be created or updated here, not even by an address already recorded
+  // as an admin of it.
+  if (!isSpaceAllowed(msg.space)) {
+    return Promise.reject('space not allowed');
+  }
+
   const space = await getSpace(msg.space, true);
 
   try {
@@ -40,7 +50,7 @@ export async function verify(body): Promise<any> {
   }
 
   const controller = await getSpaceController(msg.space, SNAPSHOT_ENV);
-  const isController = controller === body.address;
+  const isController = isSpaceController(msg.space, body.address, controller);
 
   const admins = (space?.admins || []).map(admin => admin.toLowerCase());
   const isAdmin = admins.includes(body.address.toLowerCase());

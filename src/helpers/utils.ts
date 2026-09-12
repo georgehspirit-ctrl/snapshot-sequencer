@@ -7,6 +7,7 @@ import { capture } from '@snapshot-labs/snapshot-sentry';
 import snapshot from '@snapshot-labs/snapshot.js';
 import { Response } from 'express';
 import fetch from 'node-fetch';
+import log from './log';
 
 const MAINNET_NETWORK_ID_WHITELIST = ['s', 'eth', 'arb1', 'oeth', 'sn', 'base', 'mnt', 'ape'];
 const TESTNET_NETWORK_ID_WHITELIST = ['s-tn', 'sep', 'curtis', 'linea-testnet', 'sn-sep'];
@@ -284,18 +285,50 @@ async function updateWalletConnectWhitelist(
   return true;
 }
 
-export function getSpaceController(space: string, network = NETWORK) {
-  const tld = space.split('.').slice(-1)[0];
-  const tldMapping = {
-    shib: {
-      mainnet: '109',
-      testnet: '157'
-    },
-    sonic: {
-      mainnet: '146'
-    }
-  };
-  const networkId = tldMapping[tld]?.[network] ?? DEFAULT_NETWORK;
+/**
+ * Space control on this deployment is an allowlist, not ENS.
+ *
+ * Robinhood Chain has no ENS deployment, so the upstream controller lookup
+ * (an ENS text record on the space's name) can never resolve here. Control is
+ * declared instead in SPACE_ALLOWLIST, as comma-separated `space:address`
+ * pairs, e.g. `nvda:0xabc...,aapl:0xdef...`.
+ *
+ * One space per whitelisted ticker: space ids are lowercase ticker symbols.
+ *
+ * Fails closed. An unset or empty SPACE_ALLOWLIST means nobody controls any
+ * space, so every space write is rejected — there is deliberately no fallback
+ * to open creation.
+ */
+export const NO_CONTROLLER = '0x0000000000000000000000000000000000000000';
 
-  return snapshot.utils.getSpaceController(space, networkId, { broviderUrl });
+export function parseSpaceAllowlist(raw: string = process.env.SPACE_ALLOWLIST ?? '') {
+  const entries = new Map<string, string>();
+
+  for (const pair of raw.split(',')) {
+    const [space, address] = pair.split(':').map(part => part?.trim());
+    if (!space || !address) continue;
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      log.warn(`[allowlist] ignoring malformed address for space "${space}"`);
+      continue;
+    }
+    entries.set(space.toLowerCase(), address.toLowerCase());
+  }
+
+  return entries;
+}
+
+export function isSpaceAllowed(space: string): boolean {
+  return parseSpaceAllowlist().has(space.toLowerCase());
+}
+
+export async function getSpaceController(space: string, _network = NETWORK) {
+  return parseSpaceAllowlist().get(space.toLowerCase()) ?? NO_CONTROLLER;
+}
+
+/** Controller comparison is case-insensitive: the allowlist is lowercased and
+ *  signed message addresses arrive checksummed. */
+export function isSpaceController(space: string, address: string, controller: string): boolean {
+  if (!controller || controller === NO_CONTROLLER) return false;
+  if (!isSpaceAllowed(space)) return false;
+  return controller.toLowerCase() === address.toLowerCase();
 }
