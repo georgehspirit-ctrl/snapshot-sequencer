@@ -132,8 +132,7 @@ describe('writer/settings', () => {
       });
 
       it('rejects an allowlisted space signed by a different address', async () => {
-        process.env.SPACE_ALLOWLIST =
-          `${FIXTURE_SPACE}:0x0000000000000000000000000000000000000001`;
+        process.env.SPACE_ALLOWLIST = `${FIXTURE_SPACE}:0x0000000000000000000000000000000000000001`;
 
         return expect(verify(input)).rejects.toBe('not allowed');
       });
