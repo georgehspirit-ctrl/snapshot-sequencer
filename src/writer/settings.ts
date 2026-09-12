@@ -15,8 +15,6 @@ import {
   removeFromWalletConnectWhitelist
 } from '../helpers/utils';
 
-const SNAPSHOT_ENV = process.env.NETWORK || 'testnet';
-
 export async function verify(body): Promise<any> {
   const msg = jsonParse(body.msg);
   if (msg.space.length > 64) {
@@ -49,7 +47,7 @@ export async function verify(body): Promise<any> {
     return Promise.reject(`max number of strategies is ${strategiesLimit}`);
   }
 
-  const controller = await getSpaceController(msg.space, SNAPSHOT_ENV);
+  const controller = await getSpaceController(msg.space);
   const isController = isSpaceController(msg.space, body.address, controller);
 
   const admins = (space?.admins || []).map(admin => admin.toLowerCase());

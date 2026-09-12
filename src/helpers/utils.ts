@@ -321,7 +321,7 @@ export function isSpaceAllowed(space: string): boolean {
   return parseSpaceAllowlist().has(space.toLowerCase());
 }
 
-export async function getSpaceController(space: string, _network = NETWORK) {
+export async function getSpaceController(space: string) {
   return parseSpaceAllowlist().get(space.toLowerCase()) ?? NO_CONTROLLER;
 }
 
