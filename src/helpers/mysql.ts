@@ -5,6 +5,14 @@ import Connection from 'mysql/lib/Connection';
 import Pool from 'mysql/lib/Pool';
 import log from './log';
 
+// Railway's private network (*.railway.internal) is already isolated and its MySQL
+// presents a self-signed certificate, so demanding a verified chain there fails the
+// handshake outright. Treat it like localhost; anything else still verifies.
+function sslFor(host: string) {
+  const isPrivate = host === 'localhost' || host.endsWith('.railway.internal');
+  return isPrivate ? false : { rejectUnauthorized: true };
+}
+
 bluebird.promisifyAll([Pool, Connection]);
 
 const connectionLimit = parseInt(process.env.CONNECTION_LIMIT ?? '25');
@@ -21,7 +29,7 @@ hubConfig.connectTimeout = 60e3;
 hubConfig.acquireTimeout = 60e3;
 hubConfig.timeout = 60e3;
 hubConfig.charset = 'utf8mb4';
-hubConfig.ssl = { rejectUnauthorized: hubConfig.host !== 'localhost' };
+hubConfig.ssl = sslFor(hubConfig.host);
 
 const hubDB = mysql.createPool(hubConfig);
 
@@ -36,7 +44,7 @@ sequencerConfig.connectTimeout = 60e3;
 sequencerConfig.acquireTimeout = 60e3;
 sequencerConfig.timeout = 60e3;
 sequencerConfig.charset = 'utf8mb4';
-sequencerConfig.ssl = { rejectUnauthorized: sequencerConfig.host !== 'localhost' };
+sequencerConfig.ssl = sslFor(sequencerConfig.host);
 
 const sequencerDB = mysql.createPool(sequencerConfig);
 
