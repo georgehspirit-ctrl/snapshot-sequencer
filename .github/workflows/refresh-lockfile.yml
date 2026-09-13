@@ -1,0 +1,31 @@
+name: Refresh lockfile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # The lockfile is regenerated here because it must never be generated on a
+      # machine that holds wallets. Railpack builds with --frozen-lockfile, so a
+      # stale lockfile fails the deploy outright.
+      - run: bun install
+      - name: Commit if changed
+        run: |
+          if [ -n "$(git status --porcelain bun.lock bun.lockb)" ]; then
+            git config user.name "georgehspirit-ctrl"
+            git config user.email "georgehspirit@gmail.com"
+            git add bun.lock bun.lockb 2>/dev/null || git add bun.lock
+            git commit -m "chore: refresh lockfile for the snapshot.js bump"
+            git push
+          else
+            echo "lockfile already current"
+          fi
